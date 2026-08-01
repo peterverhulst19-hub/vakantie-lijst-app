@@ -93,6 +93,16 @@ def get_user_groups(user_id: int) -> list[dict]:
     return [_clean(r) for r in df.to_dict("records")]
 
 
+def add_person(group_id: int, display_name: str) -> dict:
+    # For dependents (e.g. children) who don't have their own e-mail/Google account.
+    # They get a synthetic, never-real e-mail so they still fit the `users` table's
+    # unique-email identity model; nobody can ever log in as them.
+    placeholder_email = f"lid-{secrets.token_hex(6)}@geen-email.lokaal"
+    person = upsert_user(placeholder_email, display_name)
+    join_group(group_id, person["id"])
+    return person
+
+
 def join_group(group_id: int, user_id: int) -> None:
     conn = get_conn()
     with conn.session as s:

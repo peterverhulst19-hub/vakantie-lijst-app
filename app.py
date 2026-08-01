@@ -5,6 +5,21 @@ import db
 
 st.set_page_config(page_title="Vakantie-lijst", page_icon="\U0001f9f3")
 
+# Streamlit stacks st.columns() vertically below its mobile breakpoint. Item rows are
+# wrapped in a keyed container (below) so only those rows are forced to stay on one line;
+# other multi-column layouts (e.g. the add-item form) are left free to wrap on mobile.
+st.markdown(
+    """
+    <style>
+    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 ITEM_TYPES = ["Kledij", "Eten", "Slapen", "Toiletgerief", "Elektronica", "Documenten", "Pharmacie", "Overig"]
 
 pending_code = st.query_params.get("join")
@@ -79,6 +94,14 @@ with st.sidebar:
                     st.rerun()
                 else:
                     st.error("Onbekende uitnodigingscode.")
+
+    if st.session_state.get("active_group_id"):
+        with st.expander("Persoon toevoegen (bv. kind, zonder e-mail)"):
+            with st.form("add_person_form", clear_on_submit=True):
+                person_name = st.text_input("Naam")
+                if st.form_submit_button("Toevoegen") and person_name.strip():
+                    db.add_person(st.session_state["active_group_id"], person_name.strip())
+                    st.rerun()
 
 # --- Main area: active group's packing list ---
 active_group_id = st.session_state.get("active_group_id")
@@ -167,22 +190,25 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
             continue
         st.subheader(type_name)
         for item in type_items:
-            c1, c2, c3 = st.columns([0.08, 0.72, 0.2])
-            c1.checkbox(
-                "packed",
-                value=bool(item["aangevinkt"]),
-                key=f"packed_{item['id']}",
-                on_change=_toggle,
-                args=(item["id"],),
-                label_visibility="collapsed",
-            )
-            label = (
-                f"{item['aantal']}x {item['object']}" if item["aantal"] != 1 else item["object"]
-            )
-            c2.markdown(f"~~{label}~~" if item["aangevinkt"] else label)
-            if c3.button("Verwijder", key=f"del_{item['id']}"):
-                db.delete_item(item["id"])
-                st.rerun()
+            with st.container(key=f"item_row_{item['id']}"):
+                c1, c2, c3 = st.columns([0.08, 0.72, 0.2])
+                c1.checkbox(
+                    "packed",
+                    value=bool(item["aangevinkt"]),
+                    key=f"packed_{item['id']}",
+                    on_change=_toggle,
+                    args=(item["id"],),
+                    label_visibility="collapsed",
+                )
+                label = (
+                    f"{item['aantal']}x {item['object']}"
+                    if item["aantal"] != 1
+                    else item["object"]
+                )
+                c2.markdown(f"~~{label}~~" if item["aangevinkt"] else label)
+                if c3.button("Verwijder", key=f"del_{item['id']}"):
+                    db.delete_item(item["id"])
+                    st.rerun()
 
     if not tab_items:
         st.caption("Nog geen items. Voeg er hierboven een toe.")
