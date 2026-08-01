@@ -16,13 +16,10 @@ st.markdown(
         align-items: center !important;
         gap: 0.5rem !important;
     }
-    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child {
         width: auto !important;
         min-width: auto !important;
         flex: 0 0 auto !important;
-    }
-    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(2) {
-        flex: 1 1 auto !important;
     }
     </style>
     """,
@@ -200,22 +197,20 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
         st.subheader(type_name)
         for item in type_items:
             with st.container(key=f"item_row_{item['id']}"):
-                c1, c2, c3 = st.columns([0.08, 0.72, 0.2])
-                c1.checkbox(
-                    "packed",
-                    value=bool(item["aangevinkt"]),
-                    key=f"packed_{item['id']}",
-                    on_change=_toggle,
-                    args=(item["id"],),
-                    label_visibility="collapsed",
-                )
+                c1, c2 = st.columns([0.85, 0.15])
                 label = (
                     f"{item['aantal']}x {item['object']}"
                     if item["aantal"] != 1
                     else item["object"]
                 )
-                c2.markdown(f"~~{label}~~" if item["aangevinkt"] else label)
-                if c3.button("Verwijder", key=f"del_{item['id']}"):
+                c1.checkbox(
+                    f"~~{label}~~" if item["aangevinkt"] else label,
+                    value=bool(item["aangevinkt"]),
+                    key=f"packed_{item['id']}",
+                    on_change=_toggle,
+                    args=(item["id"],),
+                )
+                if c2.button("\U0001f5d1️", key=f"del_{item['id']}"):
                     db.delete_item(item["id"])
                     st.rerun()
 
