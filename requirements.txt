@@ -1,0 +1,6 @@
+streamlit>=1.53,<1.57
+Authlib==1.6.5
+cryptography<44
+sqlalchemy>=2.0,<3.0
+psycopg2-binary>=2.9
+pandas<3
