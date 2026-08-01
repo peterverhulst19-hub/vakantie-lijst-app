@@ -14,6 +14,15 @@ st.markdown(
     div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
         align-items: center !important;
+        gap: 0.5rem !important;
+    }
+    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: auto !important;
+        min-width: auto !important;
+        flex: 0 0 auto !important;
+    }
+    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(2) {
+        flex: 1 1 auto !important;
     }
     </style>
     """,
