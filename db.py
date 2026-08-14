@@ -103,6 +103,25 @@ def add_person(group_id: int, display_name: str) -> dict:
     return person
 
 
+def remove_member(group_id: int, user_id: int) -> None:
+    conn = get_conn()
+    new_invite_code = secrets.token_urlsafe(9)
+    with conn.session as s:
+        s.execute(
+            text("delete from items where group_id = :group_id and person_user_id = :user_id"),
+            {"group_id": group_id, "user_id": user_id},
+        )
+        s.execute(
+            text("delete from group_members where group_id = :group_id and user_id = :user_id"),
+            {"group_id": group_id, "user_id": user_id},
+        )
+        s.execute(
+            text("update groups set invite_code = :code where id = :group_id"),
+            {"code": new_invite_code, "group_id": group_id},
+        )
+        s.commit()
+
+
 def join_group(group_id: int, user_id: int) -> None:
     conn = get_conn()
     with conn.session as s:

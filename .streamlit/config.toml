@@ -1,2 +1,7 @@
 [server]
 headless = true
+
+[theme]
+base = "light"
+baseRadius = "large"
+buttonRadius = "large"

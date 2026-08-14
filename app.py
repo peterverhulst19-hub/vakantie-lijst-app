@@ -11,12 +11,14 @@ st.set_page_config(page_title="Vakantie-lijst", page_icon="\U0001f9f3")
 st.markdown(
     """
     <style>
-    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] {
+    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"],
+    div[class*="st-key-member_row_"] div[data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
         align-items: center !important;
         gap: 0.5rem !important;
     }
-    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child {
+    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child,
+    div[class*="st-key-member_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child {
         width: auto !important;
         min-width: auto !important;
         flex: 0 0 auto !important;
@@ -121,6 +123,23 @@ active_group = db.get_group(active_group_id)
 st.title(active_group["name"])
 
 members = db.get_group_members(active_group_id)
+is_owner = user["id"] == active_group["owner_user_id"]
+
+
+@st.dialog("Lid verwijderen")
+def _confirm_remove_member(group_id, member_id, member_label):
+    st.write(f"Weet je zeker dat je **{member_label}** uit de groep wilt verwijderen?")
+    st.caption(
+        "Hun persoonlijke items in deze groep worden ook verwijderd, en de "
+        "uitnodigingslink wordt vernieuwd. Dit kan niet ongedaan gemaakt worden."
+    )
+    col1, col2 = st.columns(2)
+    if col1.button("Annuleren", width="stretch"):
+        st.rerun()
+    if col2.button("Verwijderen", type="primary", width="stretch"):
+        db.remove_member(group_id, member_id)
+        st.rerun()
+
 
 with st.expander("Uitnodigen & leden"):
     app_base_url = st.secrets.get("app_base_url", "http://localhost:8501")
@@ -134,7 +153,14 @@ with st.expander("Uitnodigen & leden"):
     for member in members:
         label = member["display_name"] or member["email"]
         suffix = " (eigenaar)" if member["user_id"] == active_group["owner_user_id"] else ""
-        st.write(f"- {label}{suffix}")
+        if is_owner and member["user_id"] != active_group["owner_user_id"]:
+            with st.container(key=f"member_row_{member['user_id']}"):
+                c1, c2 = st.columns([0.75, 0.25], vertical_alignment="center")
+                c1.write(f"- {label}{suffix}")
+                if c2.button("\U0001f6ab", key=f"kick_{member['user_id']}"):
+                    _confirm_remove_member(active_group_id, member["user_id"], label)
+        else:
+            st.write(f"- {label}{suffix}")
 
 items = db.get_items(active_group_id)
 shared_items = [i for i in items if i["person_user_id"] is None]
@@ -156,14 +182,14 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
         st.caption(f"{packed} van {total} ingepakt")
 
     with st.form(f"add_item_form_{key_suffix}", clear_on_submit=True):
-        col1, col2, col3, col4 = st.columns([3, 1, 1.3, 1])
-        item_object = col1.text_input(
+        item_object = st.text_input(
             "Nieuw item",
             label_visibility="collapsed",
             placeholder="bv. Zonnebrandcrème",
             key=f"obj_{key_suffix}",
         )
-        item_aantal = col2.number_input(
+        col1, col2 = st.columns([1, 1.5])
+        item_aantal = col1.number_input(
             "Aantal",
             min_value=1,
             value=1,
@@ -171,10 +197,10 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
             label_visibility="collapsed",
             key=f"aantal_{key_suffix}",
         )
-        item_type = col3.selectbox(
+        item_type = col2.selectbox(
             "Type", ITEM_TYPES, label_visibility="collapsed", key=f"type_{key_suffix}"
         )
-        add_submitted = col4.form_submit_button("Toevoegen")
+        add_submitted = st.form_submit_button("Toevoegen", width="stretch")
         if add_submitted and item_object.strip():
             db.add_item(
                 active_group_id,
