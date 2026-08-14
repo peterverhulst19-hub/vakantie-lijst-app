@@ -17,8 +17,8 @@ st.markdown(
         align-items: center !important;
         gap: 0.5rem !important;
     }
-    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child,
-    div[class*="st-key-member_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child {
+    div[class*="st-key-item_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:not(:first-child),
+    div[class*="st-key-member_row_"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:not(:first-child) {
         width: auto !important;
         min-width: auto !important;
         flex: 0 0 auto !important;
@@ -177,12 +177,30 @@ def _toggle(item_id: int) -> None:
     db.set_item_packed(item_id, st.session_state[f"packed_{item_id}"])
 
 
+@st.dialog("Item aanpassen")
+def _edit_item_dialog(item):
+    with st.form(f"edit_item_form_{item['id']}"):
+        new_object = st.text_input("Naam", value=item["object"])
+        new_aantal = st.number_input("Aantal", min_value=1, value=item["aantal"], step=1)
+        new_type = st.selectbox("Type", ITEM_TYPES, index=ITEM_TYPES.index(item["type"]))
+        if st.form_submit_button("Opslaan", width="stretch") and new_object.strip():
+            db.update_item(item["id"], new_object.strip(), int(new_aantal), new_type)
+            st.rerun()
+
+
 def render_packing_list(tab_items, person_user_id, key_suffix):
     total = len(tab_items)
     packed = sum(1 for i in tab_items if i["aangevinkt"])
     if total:
         st.progress(packed / total)
         st.caption(f"{packed} van {total} ingepakt")
+        if st.button("Alles uitvinken", key=f"reset_{key_suffix}"):
+            db.uncheck_all(active_group_id, person_user_id)
+            st.rerun()
+
+    last_type_key = f"last_type_{key_suffix}"
+    default_type = st.session_state.get(last_type_key, ITEM_TYPES[0])
+    default_type_index = ITEM_TYPES.index(default_type) if default_type in ITEM_TYPES else 0
 
     with st.form(f"add_item_form_{key_suffix}", clear_on_submit=True):
         item_object = st.text_input(
@@ -201,7 +219,11 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
             key=f"aantal_{key_suffix}",
         )
         item_type = col2.selectbox(
-            "Type", ITEM_TYPES, label_visibility="collapsed", key=f"type_{key_suffix}"
+            "Type",
+            ITEM_TYPES,
+            index=default_type_index,
+            label_visibility="collapsed",
+            key=f"type_{key_suffix}",
         )
         add_submitted = st.form_submit_button("Toevoegen", width="stretch")
         if add_submitted and item_object.strip():
@@ -213,6 +235,7 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
                 user["id"],
                 person_user_id,
             )
+            st.session_state[last_type_key] = item_type
             st.rerun()
 
     items_by_type = {}
@@ -227,9 +250,13 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
     type_tabs = st.tabs(active_types)
     for type_tab, type_name in zip(type_tabs, active_types):
         with type_tab:
-            for item in items_by_type[type_name]:
+            type_items = items_by_type[type_name]
+            type_packed = sum(1 for i in type_items if i["aangevinkt"])
+            st.progress(type_packed / len(type_items))
+            st.caption(f"{type_packed} van {len(type_items)} ingepakt")
+            for item in type_items:
                 with st.container(key=f"item_row_{item['id']}"):
-                    c1, c2 = st.columns([0.85, 0.15])
+                    c1, c2, c3 = st.columns([0.7, 0.15, 0.15])
                     label = (
                         f"{item['aantal']}x {item['object']}"
                         if item["aantal"] != 1
@@ -242,7 +269,9 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
                         on_change=_toggle,
                         args=(item["id"],),
                     )
-                    if c2.button("\U0001f5d1️", key=f"del_{item['id']}"):
+                    if c2.button("✏️", key=f"edit_{item['id']}"):
+                        _edit_item_dialog(item)
+                    if c3.button("\U0001f5d1️", key=f"del_{item['id']}"):
                         db.delete_item(item["id"])
                         st.rerun()
 

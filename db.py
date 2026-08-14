@@ -203,8 +203,39 @@ def set_item_packed(item_id: int, packed: bool) -> None:
         s.commit()
 
 
+def update_item(item_id: int, object_name: str, aantal: int, item_type: str) -> None:
+    conn = get_conn()
+    with conn.session as s:
+        s.execute(
+            text(
+                """
+                update items set object = :object, aantal = :aantal, type = :type
+                where id = :id
+                """
+            ),
+            {"object": object_name, "aantal": aantal, "type": item_type, "id": item_id},
+        )
+        s.commit()
+
+
 def delete_item(item_id: int) -> None:
     conn = get_conn()
     with conn.session as s:
         s.execute(text("delete from items where id = :id"), {"id": item_id})
+        s.commit()
+
+
+def uncheck_all(group_id: int, person_user_id: int | None) -> None:
+    conn = get_conn()
+    with conn.session as s:
+        s.execute(
+            text(
+                """
+                update items set aangevinkt = 0
+                where group_id = :group_id
+                    and person_user_id is not distinct from :person_user_id
+                """
+            ),
+            {"group_id": group_id, "person_user_id": person_user_id},
+        )
         s.commit()
