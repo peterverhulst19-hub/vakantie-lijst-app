@@ -23,6 +23,9 @@ st.markdown(
         min-width: auto !important;
         flex: 0 0 auto !important;
     }
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(180deg, #E0F2FE 0%, #F0F9FF 280px);
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -115,12 +118,12 @@ with st.sidebar:
 active_group_id = st.session_state.get("active_group_id")
 
 if not active_group_id:
-    st.title("Vakantie-lijst")
+    st.title("\U0001f3d6️ Vakantie-lijst")
     st.write("Maak links een groep aan om te beginnen.")
     st.stop()
 
 active_group = db.get_group(active_group_id)
-st.title(active_group["name"])
+st.title(f"\U0001f9f3 {active_group['name']}")
 
 members = db.get_group_members(active_group_id)
 is_owner = user["id"] == active_group["owner_user_id"]

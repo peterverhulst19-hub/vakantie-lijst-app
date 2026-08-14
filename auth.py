@@ -39,7 +39,7 @@ def get_current_user() -> dict | None:
 
 
 def render_login_screen(invited_group_name: str | None = None) -> None:
-    st.title("Vakantie-lijst")
+    st.title("\U0001f3d6️ Vakantie-lijst")
     if invited_group_name:
         st.info(
             f"Je bent uitgenodigd voor de groep **{invited_group_name}**. "

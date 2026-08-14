@@ -3,5 +3,9 @@ headless = true
 
 [theme]
 base = "light"
+primaryColor = "#0284C7"
+backgroundColor = "#F0F9FF"
+secondaryBackgroundColor = "#E0F2FE"
+textColor = "#0C4A6E"
 baseRadius = "large"
 buttonRadius = "large"
