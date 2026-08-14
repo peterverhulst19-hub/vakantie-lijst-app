@@ -157,7 +157,7 @@ def get_group_members(group_id: int) -> list[dict]:
 def get_items(group_id: int) -> list[dict]:
     conn = get_conn()
     df = conn.query(
-        "select * from items where group_id = :group_id order by created_at",
+        "select * from items where group_id = :group_id order by sort_order, created_at",
         params={"group_id": group_id},
         ttl=0,
     )
@@ -177,8 +177,17 @@ def add_item(
         s.execute(
             text(
                 """
-                insert into items (group_id, object, aantal, type, added_by_user_id, person_user_id)
-                values (:group_id, :object, :aantal, :type, :added_by_user_id, :person_user_id)
+                insert into items (
+                    group_id, object, aantal, type, added_by_user_id, person_user_id, sort_order
+                )
+                values (
+                    :group_id, :object, :aantal, :type, :added_by_user_id, :person_user_id,
+                    coalesce((
+                        select max(sort_order) + 1 from items
+                        where group_id = :group_id and type = :type
+                            and person_user_id is not distinct from :person_user_id
+                    ), 1)
+                )
                 """
             ),
             {
@@ -189,6 +198,55 @@ def add_item(
                 "added_by_user_id": added_by_user_id,
                 "person_user_id": person_user_id,
             },
+        )
+        s.commit()
+
+
+def move_item(item_id: int, direction: str) -> None:
+    conn = get_conn()
+    with conn.session as s:
+        row = s.execute(
+            text("select group_id, person_user_id, type, sort_order from items where id = :id"),
+            {"id": item_id},
+        ).mappings().first()
+        if row is None:
+            return
+
+        params = {
+            "group_id": row["group_id"],
+            "type": row["type"],
+            "person_user_id": row["person_user_id"],
+            "sort_order": row["sort_order"],
+        }
+        if direction == "up":
+            neighbor_sql = """
+                select id, sort_order from items
+                where group_id = :group_id and type = :type
+                    and person_user_id is not distinct from :person_user_id
+                    and sort_order < :sort_order
+                order by sort_order desc
+                limit 1
+            """
+        else:
+            neighbor_sql = """
+                select id, sort_order from items
+                where group_id = :group_id and type = :type
+                    and person_user_id is not distinct from :person_user_id
+                    and sort_order > :sort_order
+                order by sort_order asc
+                limit 1
+            """
+        neighbor = s.execute(text(neighbor_sql), params).mappings().first()
+        if neighbor is None:
+            return
+
+        s.execute(
+            text("update items set sort_order = :so where id = :id"),
+            {"so": neighbor["sort_order"], "id": item_id},
+        )
+        s.execute(
+            text("update items set sort_order = :so where id = :id"),
+            {"so": row["sort_order"], "id": neighbor["id"]},
         )
         s.commit()
 

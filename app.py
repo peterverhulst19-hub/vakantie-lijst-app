@@ -177,8 +177,18 @@ def _toggle(item_id: int) -> None:
     db.set_item_packed(item_id, st.session_state[f"packed_{item_id}"])
 
 
-@st.dialog("Item aanpassen")
-def _edit_item_dialog(item):
+@st.dialog("Item")
+def _item_dialog(item):
+    col1, col2 = st.columns(2)
+    if col1.button("⬆️ Naar boven", width="stretch"):
+        db.move_item(item["id"], "up")
+        st.rerun()
+    if col2.button("⬇️ Naar onder", width="stretch"):
+        db.move_item(item["id"], "down")
+        st.rerun()
+
+    st.divider()
+
     with st.form(f"edit_item_form_{item['id']}"):
         new_object = st.text_input("Naam", value=item["object"])
         new_aantal = st.number_input("Aantal", min_value=1, value=item["aantal"], step=1)
@@ -186,6 +196,12 @@ def _edit_item_dialog(item):
         if st.form_submit_button("Opslaan", width="stretch") and new_object.strip():
             db.update_item(item["id"], new_object.strip(), int(new_aantal), new_type)
             st.rerun()
+
+    st.divider()
+
+    if st.button("\U0001f5d1️ Verwijderen", width="stretch"):
+        db.delete_item(item["id"])
+        st.rerun()
 
 
 def render_packing_list(tab_items, person_user_id, key_suffix):
@@ -256,7 +272,7 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
             st.caption(f"{type_packed} van {len(type_items)} ingepakt")
             for item in type_items:
                 with st.container(key=f"item_row_{item['id']}"):
-                    c1, c2, c3 = st.columns([0.7, 0.15, 0.15])
+                    c1, c2 = st.columns([0.85, 0.15])
                     label = (
                         f"{item['aantal']}x {item['object']}"
                         if item["aantal"] != 1
@@ -269,11 +285,8 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
                         on_change=_toggle,
                         args=(item["id"],),
                     )
-                    if c2.button("✏️", key=f"edit_{item['id']}"):
-                        _edit_item_dialog(item)
-                    if c3.button("\U0001f5d1️", key=f"del_{item['id']}"):
-                        db.delete_item(item["id"])
-                        st.rerun()
+                    if c2.button("⋮", key=f"actions_{item['id']}"):
+                        _item_dialog(item)
 
 
 tab_labels = ["Gedeeld"] + [m["display_name"] or m["email"] for m in members]
