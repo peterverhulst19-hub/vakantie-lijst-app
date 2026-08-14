@@ -216,32 +216,32 @@ def render_packing_list(tab_items, person_user_id, key_suffix):
     for item in tab_items:
         items_by_type.setdefault(item["type"], []).append(item)
 
-    for type_name in ITEM_TYPES:
-        type_items = items_by_type.get(type_name)
-        if not type_items:
-            continue
-        st.subheader(type_name)
-        for item in type_items:
-            with st.container(key=f"item_row_{item['id']}"):
-                c1, c2 = st.columns([0.85, 0.15])
-                label = (
-                    f"{item['aantal']}x {item['object']}"
-                    if item["aantal"] != 1
-                    else item["object"]
-                )
-                c1.checkbox(
-                    f"~~{label}~~" if item["aangevinkt"] else label,
-                    value=bool(item["aangevinkt"]),
-                    key=f"packed_{item['id']}",
-                    on_change=_toggle,
-                    args=(item["id"],),
-                )
-                if c2.button("\U0001f5d1️", key=f"del_{item['id']}"):
-                    db.delete_item(item["id"])
-                    st.rerun()
-
-    if not tab_items:
+    active_types = [t for t in ITEM_TYPES if items_by_type.get(t)]
+    if not active_types:
         st.caption("Nog geen items. Voeg er hierboven een toe.")
+        return
+
+    type_tabs = st.tabs(active_types)
+    for type_tab, type_name in zip(type_tabs, active_types):
+        with type_tab:
+            for item in items_by_type[type_name]:
+                with st.container(key=f"item_row_{item['id']}"):
+                    c1, c2 = st.columns([0.85, 0.15])
+                    label = (
+                        f"{item['aantal']}x {item['object']}"
+                        if item["aantal"] != 1
+                        else item["object"]
+                    )
+                    c1.checkbox(
+                        f"~~{label}~~" if item["aangevinkt"] else label,
+                        value=bool(item["aangevinkt"]),
+                        key=f"packed_{item['id']}",
+                        on_change=_toggle,
+                        args=(item["id"],),
+                    )
+                    if c2.button("\U0001f5d1️", key=f"del_{item['id']}"):
+                        db.delete_item(item["id"])
+                        st.rerun()
 
 
 tab_labels = ["Gedeeld"] + [m["display_name"] or m["email"] for m in members]
