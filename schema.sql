@@ -57,3 +57,28 @@ create index if not exists idx_items_group_id on items(group_id);
 create index if not exists idx_items_person_user_id on items(person_user_id);
 create index if not exists idx_group_members_user_id on group_members(user_id);
 create index if not exists idx_group_members_group_id on group_members(group_id);
+
+create table if not exists categories (
+    id          bigserial primary key,
+    group_id    bigint not null references groups(id) on delete cascade,
+    name        text not null,
+    created_at  timestamptz not null default now(),
+    unique (group_id, name)
+);
+
+create index if not exists idx_categories_group_id on categories(group_id);
+
+-- One-time backfill: seed the original 8 default categories for every group that doesn't
+-- have ANY categories row yet. New groups created after this migration are seeded directly
+-- in db.create_group(); this block only catches groups created before `categories` existed.
+-- Safe to re-run: once a group has at least one categories row, the `not exists` guard makes
+-- this a no-op for that group.
+insert into categories (group_id, name)
+select g.id, d.name
+from groups g
+cross join (values
+    (1, 'Kledij'), (2, 'Eten'), (3, 'Slapen'), (4, 'Toiletgerief'),
+    (5, 'Elektronica'), (6, 'Documenten'), (7, 'Pharmacie'), (8, 'Overig')
+) as d(ord, name)
+where not exists (select 1 from categories c where c.group_id = g.id)
+order by g.id, d.ord;

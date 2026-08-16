@@ -35,6 +35,12 @@ def upsert_user(email: str, display_name: str | None) -> dict:
     return _clean(df.iloc[0].to_dict())
 
 
+DEFAULT_CATEGORIES = [
+    "Kledij", "Eten", "Slapen", "Toiletgerief",
+    "Elektronica", "Documenten", "Pharmacie", "Overig",
+]
+
+
 def create_group(name: str, owner_user_id: int) -> dict:
     conn = get_conn()
     invite_code = secrets.token_urlsafe(9)
@@ -59,8 +65,45 @@ def create_group(name: str, owner_user_id: int) -> dict:
             ),
             {"group_id": group_id, "user_id": owner_user_id},
         )
+        for cat_name in DEFAULT_CATEGORIES:
+            s.execute(
+                text(
+                    """
+                    insert into categories (group_id, name)
+                    values (:group_id, :name)
+                    on conflict (group_id, name) do nothing
+                    """
+                ),
+                {"group_id": group_id, "name": cat_name},
+            )
         s.commit()
     return get_group(group_id)
+
+
+def get_categories(group_id: int) -> list[dict]:
+    conn = get_conn()
+    df = conn.query(
+        "select id, name from categories where group_id = :group_id order by id",
+        params={"group_id": group_id},
+        ttl=0,
+    )
+    return [_clean(r) for r in df.to_dict("records")]
+
+
+def add_category(group_id: int, name: str) -> None:
+    conn = get_conn()
+    with conn.session as s:
+        s.execute(
+            text(
+                """
+                insert into categories (group_id, name)
+                values (:group_id, :name)
+                on conflict (group_id, name) do nothing
+                """
+            ),
+            {"group_id": group_id, "name": name},
+        )
+        s.commit()
 
 
 def get_group(group_id: int) -> dict | None:
@@ -283,17 +326,11 @@ def delete_item(item_id: int) -> None:
         s.commit()
 
 
-def uncheck_all(group_id: int, person_user_id: int | None) -> None:
+def uncheck_category(group_id: int, item_type: str) -> None:
     conn = get_conn()
     with conn.session as s:
         s.execute(
-            text(
-                """
-                update items set aangevinkt = 0
-                where group_id = :group_id
-                    and person_user_id is not distinct from :person_user_id
-                """
-            ),
-            {"group_id": group_id, "person_user_id": person_user_id},
+            text("update items set aangevinkt = 0 where group_id = :group_id and type = :type"),
+            {"group_id": group_id, "type": item_type},
         )
         s.commit()
